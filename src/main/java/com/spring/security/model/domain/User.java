@@ -1,6 +1,8 @@
 package com.spring.security.model.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.spring.security.model.dto.UserDTO;
+import com.spring.security.utils.MapperUtils;
 import lombok.Data;
 import lombok.ToString;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -72,12 +74,7 @@ public class User implements UserDetails, Serializable {
         return true;
     }
 
-    public UsernamePasswordAuthenticationToken toAuthenticationToken() {
-        return new UsernamePasswordAuthenticationToken(username, password, getAuthorities());
+    public static User of(UserDTO userDTO) {
+        return MapperUtils.convert(userDTO, User.class);
     }
-
-    public Optional<String> getEncodedPassword() {
-        return Optional.ofNullable(password).map(p -> new BCryptPasswordEncoder().encode(p));
-    }
-
 }

@@ -1,4 +1,4 @@
-package com.spring.security.filter;
+package com.spring.security.security.authentication;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -49,5 +49,4 @@ public class UserAuthentication implements Authentication {
     public String getName() {
         return user.getUsername();
     }
-
 }

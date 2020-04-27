@@ -36,8 +36,4 @@ public class UserDTO {
         return Collections.singleton(() -> Constants.ROLE_USER);
     }
 
-    public Optional<String> getEncodedPassword() {
-        return Optional.ofNullable(password).map(p -> new BCryptPasswordEncoder().encode(p));
-    }
-
 }

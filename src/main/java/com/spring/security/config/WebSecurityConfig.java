@@ -1,6 +1,8 @@
 package com.spring.security.config;
 
-import com.spring.security.filter.StatelessLoginFilter;
+import com.spring.security.security.authentication.TokenAuthentication;
+import com.spring.security.security.filter.StatelessAuthenticationFilter;
+import com.spring.security.security.filter.StatelessLoginFilter;
 import com.spring.security.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -11,7 +13,6 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -22,22 +23,26 @@ import static com.spring.security.utils.Constants.*;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
     private UserService userService;
+    private TokenAuthentication tokenAuthentication;
 
     @Autowired
-    public SecurityConfig(UserService userService) {
+    public WebSecurityConfig(UserService userService, TokenAuthentication tokenAuthentication) {
         this.userService = userService;
+        this.tokenAuthentication = tokenAuthentication;
     }
 
-    public SecurityConfig() {
-        super(true);
+    @Bean
+    public BCryptPasswordEncoder bCryptPasswordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.csrf().disable();
+
         http.headers().frameOptions().disable();
 
         http.exceptionHandling()
@@ -47,29 +52,31 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
         http.authorizeRequests()
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
-                .antMatchers(HttpMethod.GET, "/check_account").permitAll();
+                //checking user info
+                .antMatchers(HttpMethod.POST, "/users").hasRole("ADMIN")
+                .anyRequest().authenticated();
+
+
+        http.addFilterBefore(this.corsFilter(),UsernamePasswordAuthenticationFilter.class);
 
         http.addFilterBefore(
-                new StatelessLoginFilter("/login", userService, authenticationManager()),
+                new StatelessLoginFilter("/login", tokenAuthentication, userService, authenticationManager()),
                 UsernamePasswordAuthenticationFilter.class);
 
-        http.addFilterBefore(this.corsFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(
+                new StatelessAuthenticationFilter(tokenAuthentication),
+                UsernamePasswordAuthenticationFilter.class);
+
     }
 
     @Bean
-    @Override
-    public AuthenticationManager authenticationManagerBean() throws Exception {
-        return super.authenticationManagerBean();
+    public AuthenticationManager customAuthenticationManager() throws Exception {
+        return authenticationManager();
     }
 
-    @Override
-    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.userDetailsService(userService).passwordEncoder(new BCryptPasswordEncoder());
-    }
-
-    @Override
-    protected UserDetailsService userDetailsService() {
-        return userService;
+    @Autowired
+    public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
+        auth.userDetailsService(userService).passwordEncoder(bCryptPasswordEncoder());
     }
 
     @Bean
@@ -80,8 +87,6 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         config.setAllowCredentials(true);
         config.addAllowedOrigin("*");
         config.addAllowedHeader("*");
-        config.addExposedHeader(AUTH_HEADER_NAME);
-        config.addExposedHeader(AUTH_HEADER_ROLE);
         config.addAllowedMethod("GET");
         config.addAllowedMethod("PUT");
         config.addAllowedMethod("POST");
@@ -89,5 +94,4 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         source.registerCorsConfiguration("/**", config);
         return new CorsFilter(source);
     }
-
 }
